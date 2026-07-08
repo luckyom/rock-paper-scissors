@@ -1,8 +1,9 @@
 # Runtime artifacts — do not commit scraped pages or generated databases.
 .cache/
 output/
+.venv/
 *.xlsx
-*.csv
-!data/*.example.csv
 __pycache__/
 *.pyc
+
+# Seed CSVs under data/ ARE tracked (they are inputs, not generated output).
