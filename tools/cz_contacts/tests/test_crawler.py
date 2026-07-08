@@ -158,6 +158,40 @@ def test_output_files(tmp_path):
     assert list(top["organization"]) == ["A", "B"]   # A-priority, sorted by km
 
 
+def test_no_false_name_from_nav_words():
+    # Two capitalised words with no role keyword must NOT become a person name.
+    for junk in ("Instagram Facebook", "Kontaktní údaje", "Stodůlky Navštívit"):
+        html = f'<li>{junk} <a href="mailto:info@x.cz">info@x.cz</a></li>'
+        named = extract.find_named_contacts(html)
+        assert named == [], f"should not treat {junk!r} as a name"
+
+
+def test_named_contact_still_found_with_role():
+    html = ('<li>Programová manažerka: Jana Krásná '
+            '<a href="mailto:jana@kd.cz">jana@kd.cz</a></li>')
+    named = extract.find_named_contacts(html)
+    assert named and named[0]["person_name"] == "Jana Krásná"
+    assert named[0]["tier"] == "DRAMATURG"
+
+
+def test_prefer_same_domain_email():
+    from crawler.resolve import _prefer_generic
+    emails = ["booker@partner.cz", "info@venue.cz"]
+    assert _prefer_generic(emails, "venue.cz") == "info@venue.cz"
+    # falls back to any email when none match the site domain
+    assert _prefer_generic(["booker@partner.cz"], "venue.cz") == "booker@partner.cz"
+
+
+def test_cross_domain_email_flagged():
+    url = "https://venue.cz"
+    pages = {url: '<p>Booking: <a href="mailto:booker@partner.cz">booker@partner.cz</a></p>'}
+    ff = FakeFetch(pages)
+    c = resolve_org(ff, category=CAT_KD, organization="Venue", city="Praha",
+                    website="venue.cz")
+    assert c.email == "booker@partner.cz"
+    assert "differs from site" in c.notes
+
+
 def test_dedup_keeps_distinct_websiteless_orgs():
     # Two unresolved xmas rows with no website/email must not collapse.
     a = Contact(category=CAT_XMAS, organization="Vánoční trhy Brno", city="Brno")

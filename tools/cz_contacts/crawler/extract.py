@@ -226,12 +226,19 @@ def find_named_contacts(html_text: str) -> list[dict]:
         if len(block_emails) != 1:
             continue
         title_m = _TITLE_HINT_RE.search(text)
-        name = _find_person_name(text)
-        if not (title_m or name):
+        titled = _TITLED_NAME_RE.search(text)
+        # A block is a *named* contact only if it carries a role keyword or an
+        # academic-titled name. A bare pair of capitalised words is NOT trusted
+        # as a name (that produced "Instagram Facebook" / "Kontaktní údaje").
+        if not (title_m or titled):
             continue
+        if titled:
+            name = titled.group(1).strip()
+        elif title_m:
+            name = _find_person_name(text)   # role present → trust a plain name
+        else:
+            name = ""
         tier = classify_contact_type(text)
-        if tier == "GENERIC" and not name:
-            continue
         email = block_emails[0]
         if email in seen_emails:
             continue

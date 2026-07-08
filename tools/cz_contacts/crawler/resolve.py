@@ -110,12 +110,17 @@ def resolve_org(
         return contact
 
     # 2) No named contact — take any generic email from the pages.
+    site_domain = extract.domain_of(website)
     for url, html_text in pages:
         emails = extract.emails_from_html(html_text)
         if emails:
-            contact.email = _prefer_generic(emails)
+            contact.email = _prefer_generic(emails, site_domain)
             contact.contact_type = T_GENERIC
             contact.source_url = url
+            if site_domain and extract.domain_of(contact.email) != site_domain:
+                contact.notes = (
+                    f"Email domain differs from site ({site_domain}); verify."
+                )
             phones = extract.phones_from_text(
                 extract.BeautifulSoup(html_text, "lxml").get_text(" ")
             )
@@ -139,14 +144,20 @@ def resolve_org(
     return contact
 
 
-def _prefer_generic(emails: list[str]) -> str:
-    """Prefer info@/kultura@/podatelna@ style addresses for the generic tier."""
+def _prefer_generic(emails: list[str], site_domain: str = "") -> str:
+    """Pick the best generic address.
+
+    Prefer an address on the site's own domain (avoids grabbing a partner/agency
+    address embedded in a footer), then an info@/kultura@/podatelna@ localpart.
+    """
+    same = [e for e in emails if site_domain and extract.domain_of(e) == site_domain]
+    pool = same or emails
     priority_locals = ("info", "kultura", "kancelar", "sekretariat", "podatelna", "mesto", "urad")
     for pref in priority_locals:
-        for e in emails:
+        for e in pool:
             if e.split("@")[0].startswith(pref):
                 return e
-    return emails[0]
+    return pool[0]
 
 
 def _assign_priority(contact: Contact) -> None:
