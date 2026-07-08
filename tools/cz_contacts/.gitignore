@@ -1,0 +1,8 @@
+# Runtime artifacts — do not commit scraped pages or generated databases.
+.cache/
+output/
+*.xlsx
+*.csv
+!data/*.example.csv
+__pycache__/
+*.pyc
